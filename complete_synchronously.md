@@ -22,7 +22,8 @@ True: When `completes_synchronously(sender, env)` is `true`, the connected recei
 
 False: Returning `false` from `completes_synchronously(sender, env)` indicates that the completion-signal operation may occur after the return from `execution::start()`. This setting allows asynchronous completion, potentially requiring heap allocation of operation state or necessitating synchronization for `sync_wait()`.
 
-Invalid Expression: Returning an invalid expression from `completes_synchronously(sender, env)` indicates that the completion-signal operation may occur after the return from `execution::start()`.
+Question 1: Can we differentiate between `true`, `false` and not known? What is the difference between `false` and not known?
+Question 2: Can we change the definition such that returning false means that the operation is guaranteed to not complete synchronously? Does it mean we can't have recursive call stacks?
 
 `is_blocking()`:
 
