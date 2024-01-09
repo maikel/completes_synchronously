@@ -499,10 +499,13 @@ return from <code class="sourceCode default">execution::start()</code>.
 This setting allows asynchronous completion, potentially requiring heap
 allocation of operation state or necessitating synchronization for
 <code class="sourceCode default">sync_wait()</code>.</p>
-<p>Invalid Expression: Returning an invalid expression from <code class="sourceCode default">completes_synchronously(sender, env)</code>
-indicates that the completion-signal operation may occur after the
-return from
-<code class="sourceCode default">execution::start()</code>.</p>
+<p>Question 1: Can we differentiate between
+<code class="sourceCode default">true</code>,
+<code class="sourceCode default">false</code> and not known? What is the
+difference between <code class="sourceCode default">false</code> and not
+known? Question 2: Can we change the definition such that returning
+false means that the operation is guaranteed to not complete
+synchronously? Does it mean we can’t have recursive call stacks?</p>
 <p><code class="sourceCode default">is_blocking()</code>:</p>
 <p>True: When
 <code class="sourceCode default">is_blocking(sender, env)</code> returns
