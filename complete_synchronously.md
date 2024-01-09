@@ -46,9 +46,7 @@ One possible solution is to use a `completes_synchronously(sender, env)` query t
 
 # Exploring the Role of `is_blocking(sender, env)` in Asynchronous Operations
 
-1. Ensuring forward progress guarantees in case of non blocking requirements: If `is_blocking(sender, env)` is `false`, the implementation of `execution::start(op)` should not block, irrespective of external conditions beyond the thread's execution steps. This setting allows `start()` to proceed without waiting for external conditions, but it doesn't guarantee synchronous completion. This setting is useful in scenarios where blocking is not allowed, e.g., when the operation is executed on a thread pool that is shared with other operations.
-
-2. Managing Thread resources: A thread pool might have extra resource for blocking operations. In this case, `is_blocking(sender, env)` can be used to determine whether the operation is blocking or not. If `is_blocking(sender, env)` is `true`, the operation can be executed on a thread that is allowed to block. If `is_blocking(sender, env)` is `false`, the operation can be executed on a thread that is not allowed to block.
+1. Managing Thread resources: A thread pool might have extra resource for blocking operations. In this case, `is_blocking(sender, env)` can be used to determine whether the operation is blocking or not. If `is_blocking(sender, env)` is `true`, the operation can be executed on a thread that is allowed to be blocked. If `is_blocking(sender, env)` is `false`, the operation can be executed on a thread that is not allowed to block.
 
 # Conclusion:
 

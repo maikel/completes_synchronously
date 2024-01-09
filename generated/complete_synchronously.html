@@ -574,28 +574,16 @@ awaited expression completes.</p></li>
 <code class="sourceCode default">is_blocking(sender, env)</code> in
 Asynchronous Operations<a href="#exploring-the-role-of-is_blockingsender-env-in-asynchronous-operations" class="self-link"></a></h1>
 <ol type="1">
-<li><p>Ensuring forward progress guarantees in case of non blocking
-requirements: If
-<code class="sourceCode default">is_blocking(sender, env)</code> is
-<code class="sourceCode default">false</code>, the implementation of
-<code class="sourceCode default">execution::start(op)</code> should not
-block, irrespective of external conditions beyond the thread’s execution
-steps. This setting allows
-<code class="sourceCode default">start()</code> to proceed without
-waiting for external conditions, but it doesn’t guarantee synchronous
-completion. This setting is useful in scenarios where blocking is not
-allowed, e.g., when the operation is executed on a thread pool that is
-shared with other operations.</p></li>
-<li><p>Managing Thread resources: A thread pool might have extra
-resource for blocking operations. In this case,
+<li>Managing Thread resources: A thread pool might have extra resource
+for blocking operations. In this case,
 <code class="sourceCode default">is_blocking(sender, env)</code> can be
 used to determine whether the operation is blocking or not. If
 <code class="sourceCode default">is_blocking(sender, env)</code> is
 <code class="sourceCode default">true</code>, the operation can be
-executed on a thread that is allowed to block. If
+executed on a thread that is allowed to be blocked. If
 <code class="sourceCode default">is_blocking(sender, env)</code> is
 <code class="sourceCode default">false</code>, the operation can be
-executed on a thread that is not allowed to block.</p></li>
+executed on a thread that is not allowed to block.</li>
 </ol>
 <h1 data-number="5" id="conclusion"><span class="header-section-number">5</span> Conclusion:<a href="#conclusion" class="self-link"></a></h1>
 <p>Clear differentiation between
