@@ -5,7 +5,8 @@
   <meta name="generator" content="mpark/wg21" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="dcterms.date" content="2024-01-11" />
-  <title>Introducing Sender Query `completes_synchronously()`</title>
+  <title>Introducing Sender Queries `completes_synchronously()` and
+`get_completion_concurrency()`</title>
   <style>
       code{white-space: pre-wrap;}
       span.smallcaps{font-variant: small-caps;}
@@ -419,8 +420,9 @@ code.sourceCode > span { display: inline; }
 <body>
 <div class="wrapper">
 <header id="title-block-header">
-<h1 class="title" style="text-align:center">Introducing Sender Query
-<code class="sourceCode default">completes_synchronously()</code></h1>
+<h1 class="title" style="text-align:center">Introducing Sender Queries
+<code class="sourceCode default">completes_synchronously()</code> and
+<code class="sourceCode default">get_completion_concurrency()</code></h1>
 <table style="border:none;float:right">
   <tr>
     <td>Document #:</td>
@@ -462,9 +464,23 @@ code.sourceCode > span { display: inline; }
 <li><a href="#possible-return-values" id="toc-possible-return-values"><span class="toc-section-number">2.1.1</span> Possible Return
 Values<span></span></a></li>
 </ul></li>
-<li><a href="#get_completion_concurrencys-env" id="toc-get_completion_concurrencys-env"><span class="toc-section-number">2.2</span> <code class="sourceCode default">get_completion_concurrency(s, env)</code>:<span></span></a></li>
+<li><a href="#get_completion_concurrencys-env" id="toc-get_completion_concurrencys-env"><span class="toc-section-number">2.2</span> <code class="sourceCode default">get_completion_concurrency(s, env)</code>:<span></span></a>
+<ul>
+<li><a href="#possible-return-values-1" id="toc-possible-return-values-1"><span class="toc-section-number">2.2.1</span> Possible Return
+Values<span></span></a></li>
 </ul></li>
-<li><a href="#use-cases-of-completes_synchronouslysender-env" id="toc-use-cases-of-completes_synchronouslysender-env"><span class="toc-section-number">3</span> Use Cases of <code class="sourceCode default">completes_synchronously(sender, env)</code><span></span></a></li>
+</ul></li>
+<li><a href="#use-cases" id="toc-use-cases"><span class="toc-section-number">3</span> Use Cases<span></span></a>
+<ul>
+<li><a href="#within-the-sync_wait-algorithm" id="toc-within-the-sync_wait-algorithm"><span class="toc-section-number">3.1</span> Within the
+<code class="sourceCode default">sync_wait</code>
+algorithm<span></span></a></li>
+<li><a href="#repeat-algorithms" id="toc-repeat-algorithms"><span class="toc-section-number">3.2</span>
+<code class="sourceCode default">repeat</code>
+algorithms<span></span></a></li>
+<li><a href="#scheduler-affine-task-type" id="toc-scheduler-affine-task-type"><span class="toc-section-number">3.3</span> scheduler-affine task
+type<span></span></a></li>
+</ul></li>
 <li><a href="#implementation" id="toc-implementation"><span class="toc-section-number">4</span> Implementation<span></span></a></li>
 </ul>
 </div>
@@ -478,8 +494,9 @@ receivers, building upon the current
 These queries empower the sender to convey information about the
 completion behavior of the associated operation. This information proves
 instrumental in optimizing the behavior of algorithms, including but not
-limited to <code class="sourceCode default">sync_wait()</code> and
-<code class="sourceCode default">repeat()</code>.</p>
+limited to <code class="sourceCode default">sync_wait()</code>,
+<code class="sourceCode default">repeat()</code>-like algorithms and a
+scheduler-affine task type.</p>
 <h1 data-number="2" id="proposal"><span class="header-section-number">2</span> Proposal<a href="#proposal" class="self-link"></a></h1>
 <p>Let sender <code class="sourceCode default">s</code> and receiver
 <code class="sourceCode default">r</code> be connected, let
@@ -524,56 +541,80 @@ operations initiated by
 or if it can be executed concurrently, treating the completion and the
 return from <code class="sourceCode default">start()</code> as if
 initiated by different threads (parallel).</p>
-<p>Sequential: When <code class="sourceCode default">get_completion_concurrency(sender, env)</code>
-is <code class="sourceCode default">sequential</code>, the completion
+<h3 data-number="2.2.1" id="possible-return-values-1"><span class="header-section-number">2.2.1</span> Possible Return Values<a href="#possible-return-values-1" class="self-link"></a></h3>
+<p><strong>Sequential:</strong> When <code class="sourceCode default">get_completion_concurrency(s, env)</code> is
+<code class="sourceCode default">sequential</code>, the completion
 operation is guaranteed to be executed sequentially with respect to
 other operations that are initiated by
 <code class="sourceCode default">execution::start()</code>.</p>
-<p>Parallel: When <code class="sourceCode default">get_completion_concurrency(sender, env)</code>
-is <code class="sourceCode default">parallel</code>, the
-completion-signal operation and the return from
+<p><strong>Parallel:</strong> When <code class="sourceCode default">get_completion_concurrency(s, env)</code> is
+<code class="sourceCode default">parallel</code>, the completion-signal
+operation and the return from
 <code class="sourceCode default">execution::start()</code> are being
 executed as if they were initiated by different threads.</p>
-<h1 data-number="3" id="use-cases-of-completes_synchronouslysender-env"><span class="header-section-number">3</span> Use Cases of <code class="sourceCode default">completes_synchronously(sender, env)</code><a href="#use-cases-of-completes_synchronouslysender-env" class="self-link"></a></h1>
-<p>The <code class="sourceCode default">completes_synchronously(sender, env)</code>
-query serves as a crucial determinant in understanding the behavior of
-asynchronous operations within different contexts. Its role extends
-across various functionalities and implementations.</p>
-<ol type="1">
-<li><p>Within the <code class="sourceCode default">sync_wait</code>
-algorithm: One possible implementation of
+<h1 data-number="3" id="use-cases"><span class="header-section-number">3</span> Use Cases<a href="#use-cases" class="self-link"></a></h1>
+<p>The queries serve as a crucial determinant in understanding the
+behavior of asynchronous operations within different contexts. Its role
+extends across various functionalities and implementations.</p>
+<h2 data-number="3.1" id="within-the-sync_wait-algorithm"><span class="header-section-number">3.1</span> Within the
+<code class="sourceCode default">sync_wait</code> algorithm<a href="#within-the-sync_wait-algorithm" class="self-link"></a></h2>
+<p>One possible implementation of
 <code class="sourceCode default">sync_wait(sender)</code> is to
 synchronize the completion of the async operation with an internal
-condition variable. On the other hand, if <code class="sourceCode default">completes_synchronously(sender, env)</code>
+condition variable. On the other hand, if
+<code class="sourceCode default">completes_synchronously(s, env)</code>
 is <code class="sourceCode default">true</code>, the operation will be
 completed synchronously automatically when it is being started and the
-need for synchronization is avoided.</p></li>
-<li><p>Consider a typical
-<code class="sourceCode default">repeat(s1)</code> algorithm that
-repeats the asynchronous operation, which is associated with the sender
-<code class="sourceCode default">s1</code>. If the operation completes
-synchronously, the usual implementation results in a recursive call to
+need for synchronization is avoided.</p>
+<h2 data-number="3.2" id="repeat-algorithms"><span class="header-section-number">3.2</span>
+<code class="sourceCode default">repeat</code> algorithms<a href="#repeat-algorithms" class="self-link"></a></h2>
+<p>Consider a typical <code class="sourceCode default">repeat(s)</code>
+algorithm that repeats the asynchronous operation, which is associated
+with the sender <code class="sourceCode default">s</code>. If the
+operation completes synchronously, the usual implementation results in a
+recursive call to
 <code class="sourceCode default">execuction::start()</code> within the
 completion signal <code class="sourceCode default">set_value()</code> of
 an intermediate receiver. Therefore, some kind of prevention needs to be
 implemented to avoid recursive call stacks and stack overflow,
-e.g. using a trampoline scheduler. One possible solution is to use a
-<code class="sourceCode default">completes_synchronously(sender, env)</code>
+e.g. using a trampoline scheduler. An improvment to this would be to use
+the
+<code class="sourceCode default">completes_synchronously(s, env)</code>
 query to determine whether the operation is completed synchronously. If
 <code class="sourceCode default">completes_synchronously(sender, env)</code>
-is <code class="sourceCode default">true</code>, the operation is
+is <code class="sourceCode default">always</code>, the operation is
 completed synchronously, and the algorithm can be implemented such that
-the recursion is avoided.</p></li>
-<li><p>Consider a coroutine task type
+the recursion is avoided. The only case where the trampoline scheduler
+is still needed is when <code class="sourceCode default">completes_synchronously(sender, env)</code>
+is <code class="sourceCode default">maybe</code> (or not known) and
+<code class="sourceCode default">get_completion_concurrency(sender, env)</code>
+is <code class="sourceCode default">sequential</code>.</p>
+<h2 data-number="3.3" id="scheduler-affine-task-type"><span class="header-section-number">3.3</span> scheduler-affine task type<a href="#scheduler-affine-task-type" class="self-link"></a></h2>
+<p>Consider a coroutine task type
 <code class="sourceCode default">task&lt;T&gt;</code> that ensures that
-each awaited expression completes on the current scheduler. If the
-awaited expression completes synchronously, the task can be implemented
+each awaited expression completes on the initial scheduler. If a
+co_await’ed sender completes synchronously, the task can be implemented
 such that the coroutine is resumed immediately. If the awaited
 expression completes asynchronously, the task can be implemented such
 that the coroutine is resumed on the current scheduler when the awaited
-expression completes.</p></li>
-</ol>
+expression completes.</p>
 <h1 data-number="4" id="implementation"><span class="header-section-number">4</span> Implementation<a href="#implementation" class="self-link"></a></h1>
+<ul>
+<li><code class="sourceCode default">just</code>:
+<ul>
+<li><code class="sourceCode default">completes_synchronously()</code>:
+<code class="sourceCode default">always</code></li>
+<li><code class="sourceCode default">get_completion_concurrency()</code>:
+<code class="sourceCode default">sequential</code></li>
+</ul></li>
+<li><code class="sourceCode default">then(s, fn)</code>:
+<ul>
+<li><code class="sourceCode default">completes_synchronously(env)</code>:
+<code class="sourceCode default">completes_synchronously(s, env)</code></li>
+<li><code class="sourceCode default">get_completion_concurrency(env)</code>:
+<code class="sourceCode default">get_completion_concurrency(s, env)</code></li>
+</ul></li>
+</ul>
 </div>
 </div>
 </body>
