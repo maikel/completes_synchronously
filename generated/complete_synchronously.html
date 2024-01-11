@@ -4,9 +4,8 @@
   <meta charset="utf-8" />
   <meta name="generator" content="mpark/wg21" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <meta name="dcterms.date" content="2023-11-17" />
-  <title>Proposal for Clarifying Semantics of `is_blocking()` and
-`completes_synchronously()` for Asynchronous Operations</title>
+  <meta name="dcterms.date" content="2024-01-11" />
+  <title>Introducing Sender Query `completes_synchronously()`</title>
   <style>
       code{white-space: pre-wrap;}
       span.smallcaps{font-variant: small-caps;}
@@ -420,10 +419,8 @@ code.sourceCode > span { display: inline; }
 <body>
 <div class="wrapper">
 <header id="title-block-header">
-<h1 class="title" style="text-align:center">Proposal for Clarifying
-Semantics of <code class="sourceCode default">is_blocking()</code> and
-<code class="sourceCode default">completes_synchronously()</code> for
-Asynchronous Operations</h1>
+<h1 class="title" style="text-align:center">Introducing Sender Query
+<code class="sourceCode default">completes_synchronously()</code></h1>
 <table style="border:none;float:right">
   <tr>
     <td>Document #:</td>
@@ -431,7 +428,7 @@ Asynchronous Operations</h1>
   </tr>
   <tr>
     <td>Date:</td>
-    <td>2023-11-17</td>
+    <td>2024-01-11</td>
   </tr>
   <tr>
     <td style="vertical-align:top">Project:</td>
@@ -440,7 +437,7 @@ Asynchronous Operations</h1>
   <tr>
     <td style="vertical-align:top">Audience:</td>
     <td>
-      SG-1<br>
+      <br>
     </td>
   </tr>
   <tr>
@@ -457,83 +454,87 @@ Asynchronous Operations</h1>
 <h1 id="toctitle">Contents</h1>
 <ul>
 <li><a href="#abstract" id="toc-abstract"><span class="toc-section-number">1</span> Abstract<span></span></a></li>
-<li><a href="#proposal" id="toc-proposal"><span class="toc-section-number">2</span> Proposal:<span></span></a></li>
-<li><a href="#exploring-the-role-of-completes_synchronouslysender-env-in-asynchronous-operations" id="toc-exploring-the-role-of-completes_synchronouslysender-env-in-asynchronous-operations"><span class="toc-section-number">3</span> Exploring the Role of <code class="sourceCode default">completes_synchronously(sender, env)</code>
-in Asynchronous Operations<span></span></a></li>
-<li><a href="#exploring-the-role-of-is_blockingsender-env-in-asynchronous-operations" id="toc-exploring-the-role-of-is_blockingsender-env-in-asynchronous-operations"><span class="toc-section-number">4</span> Exploring the Role of
-<code class="sourceCode default">is_blocking(sender, env)</code> in
-Asynchronous Operations<span></span></a></li>
-<li><a href="#conclusion" id="toc-conclusion"><span class="toc-section-number">5</span> Conclusion:<span></span></a></li>
+<li><a href="#proposal" id="toc-proposal"><span class="toc-section-number">2</span> Proposal<span></span></a>
+<ul>
+<li><a href="#completes_synchronouslys-env" id="toc-completes_synchronouslys-env"><span class="toc-section-number">2.1</span>
+<code class="sourceCode default">completes_synchronously(s, env)</code>:<span></span></a>
+<ul>
+<li><a href="#possible-return-values" id="toc-possible-return-values"><span class="toc-section-number">2.1.1</span> Possible Return
+Values<span></span></a></li>
+</ul></li>
+<li><a href="#get_completion_concurrencys-env" id="toc-get_completion_concurrencys-env"><span class="toc-section-number">2.2</span> <code class="sourceCode default">get_completion_concurrency(s, env)</code>:<span></span></a></li>
+</ul></li>
+<li><a href="#use-cases-of-completes_synchronouslysender-env" id="toc-use-cases-of-completes_synchronouslysender-env"><span class="toc-section-number">3</span> Use Cases of <code class="sourceCode default">completes_synchronously(sender, env)</code><span></span></a></li>
+<li><a href="#implementation" id="toc-implementation"><span class="toc-section-number">4</span> Implementation<span></span></a></li>
 </ul>
 </div>
 <h1 data-number="1" id="abstract"><span class="header-section-number">1</span> Abstract<a href="#abstract" class="self-link"></a></h1>
-<p>This paper aims to introduce the semantics of
-<code class="sourceCode default">is_blocking()</code> and
-<code class="sourceCode default">completes_synchronously()</code>
-queries in the context of asynchronous operations involving senders and
-receivers from the current
+<p>This paper aims to introduce the semantics of two queries, namely
+<code class="sourceCode default">completes_synchronously()</code> and
+<code class="sourceCode default">get_completion_concurrency()</code>,
+within the framework of asynchronous operations that involve senders and
+receivers, building upon the current
 <code class="sourceCode default">std::execution</code> proposal P2300.
-Building upon previous discussions and proposals, the paper delineates
-clear distinctions between these two queries and their practical
-implications for implementation and use cases.</p>
-<h1 data-number="2" id="proposal"><span class="header-section-number">2</span> Proposal:<a href="#proposal" class="self-link"></a></h1>
-<p>Let <code class="sourceCode default">sender</code> and
-<code class="sourceCode default">receiver</code> be connected, let
+These queries empower the sender to convey information about the
+completion behavior of the associated operation. This information proves
+instrumental in optimizing the behavior of algorithms, including but not
+limited to <code class="sourceCode default">sync_wait()</code> and
+<code class="sourceCode default">repeat()</code>.</p>
+<h1 data-number="2" id="proposal"><span class="header-section-number">2</span> Proposal<a href="#proposal" class="self-link"></a></h1>
+<p>Let sender <code class="sourceCode default">s</code> and receiver
+<code class="sourceCode default">r</code> be connected, let
 <code class="sourceCode default">env</code> be the receivers environment
-and <code class="sourceCode default">op</code> an operation that is
-initiated by
+and <code class="sourceCode default">op</code> the resulting operation
+that is initiated by
 <code class="sourceCode default">execution::start(op)</code>. The
 following definitions apply:</p>
-<p><code class="sourceCode default">completes_synchronously()</code>:</p>
-<p>True: When <code class="sourceCode default">completes_synchronously(sender, env)</code>
-is <code class="sourceCode default">true</code>, the connected
-receiver’s completion-signal is guaranteed to occur before the return
-from <code class="sourceCode default">execution::start()</code>. This
-setting implies synchronous completion of the operation, enabling stack
+<h2 data-number="2.1" id="completes_synchronouslys-env"><span class="header-section-number">2.1</span>
+<code class="sourceCode default">completes_synchronously(s, env)</code>:<a href="#completes_synchronouslys-env" class="self-link"></a></h2>
+<p>This query primarily addresses the timing of the completion-signal
+operation concerning the return from
+<code class="sourceCode default">execution::start(op)</code>. It
+specifies whether the completion-signal happens synchronously before the
+return from <code class="sourceCode default">start()</code> or if it may
+occur asynchronously after the return.</p>
+<h3 data-number="2.1.1" id="possible-return-values"><span class="header-section-number">2.1.1</span> Possible Return Values<a href="#possible-return-values" class="self-link"></a></h3>
+<p><strong>Always:</strong> When
+<code class="sourceCode default">completes_synchronously(s, env)</code>
+returns <code class="sourceCode default">always</code>, the connected
+receiver’s completion-signal happens before the return from
+<code class="sourceCode default">execution::start()</code>. This setting
+implies synchronous completion of the operation, enabling stack
 allocation of operation state or avoidance of certain synchronizations
 (e.g., in <code class="sourceCode default">sync_wait()</code>).</p>
-<p>False: Returning <code class="sourceCode default">false</code> from
-<code class="sourceCode default">completes_synchronously(sender, env)</code>
+<p><strong>Maybe:</strong> Returning
+<code class="sourceCode default">maybe</code> from <code class="sourceCode default">completes_synchronously(sender, env)</code>
 indicates that the completion-signal operation may occur after the
-return from <code class="sourceCode default">execution::start()</code>.
-This setting allows asynchronous completion, potentially requiring heap
-allocation of operation state or necessitating synchronization for
-<code class="sourceCode default">sync_wait()</code>.</p>
-<p>Question 1: Can we differentiate between
-<code class="sourceCode default">true</code>,
-<code class="sourceCode default">false</code> and not known? What is the
-difference between <code class="sourceCode default">false</code> and not
-known? Question 2: Can we change the definition such that returning
-false means that the operation is guaranteed to not complete
-synchronously? Does it mean we can’t have recursive call stacks?</p>
-<p><code class="sourceCode default">is_blocking()</code>:</p>
-<p>True: When
-<code class="sourceCode default">is_blocking(sender, env)</code> returns
-<code class="sourceCode default">true</code>, it denotes that the
-forward progress of
-<code class="sourceCode default">execution::start(op)</code> may depend
-on external conditions beyond the thread’s execution steps. This setting
-could encompass scenarios where
-<code class="sourceCode default">start()</code> might encounter blocking
-conditions, even if the completion does not happen synchronously.</p>
-<p>False:
-<code class="sourceCode default">is_blocking(sender, env) = false</code>
-signifies that
-<code class="sourceCode default">execution::start(op)</code> should not
-block, irrespective of external conditions beyond the thread’s execution
-steps. This setting allows
-<code class="sourceCode default">start()</code> to proceed without
-waiting for external conditions, but it doesn’t guarantee synchronous
-completion.</p>
-<p>It’s crucial to note that
-<code class="sourceCode default">completes_synchronously()</code>
-focuses solely on the timing of completion-signal operations, whereas
-<code class="sourceCode default">is_blocking()</code> pertains to the
-potential blocking nature impacting the forward progress of
-<code class="sourceCode default">start()</code> based on external
-conditions.</p>
-<h1 data-number="3" id="exploring-the-role-of-completes_synchronouslysender-env-in-asynchronous-operations"><span class="header-section-number">3</span> Exploring the Role of <code class="sourceCode default">completes_synchronously(sender, env)</code>
-in Asynchronous Operations<a href="#exploring-the-role-of-completes_synchronouslysender-env-in-asynchronous-operations" class="self-link"></a></h1>
+return from
+<code class="sourceCode default">execution::start(op)</code>.</p>
+<p><strong>Delayed:</strong> Returning
+<code class="sourceCode default">delayed</code> from <code class="sourceCode default">completes_synchronously(sender, env)</code>
+indicates that the return from
+<code class="sourceCode default">execution::start()</code> happens
+before the completion-signal operation.</p>
+<h2 data-number="2.2" id="get_completion_concurrencys-env"><span class="header-section-number">2.2</span> <code class="sourceCode default">get_completion_concurrency(s, env)</code>:<a href="#get_completion_concurrencys-env" class="self-link"></a></h2>
+<p>This query is concerned with the concurrency of the completion
+operation itself. It specifies whether the completion-signal operation
+is guaranteed to be executed sequentially with respect to other
+operations initiated by
+<code class="sourceCode default">execution::start()</code> (sequential)
+or if it can be executed concurrently, treating the completion and the
+return from <code class="sourceCode default">start()</code> as if
+initiated by different threads (parallel).</p>
+<p>Sequential: When <code class="sourceCode default">get_completion_concurrency(sender, env)</code>
+is <code class="sourceCode default">sequential</code>, the completion
+operation is guaranteed to be executed sequentially with respect to
+other operations that are initiated by
+<code class="sourceCode default">execution::start()</code>.</p>
+<p>Parallel: When <code class="sourceCode default">get_completion_concurrency(sender, env)</code>
+is <code class="sourceCode default">parallel</code>, the
+completion-signal operation and the return from
+<code class="sourceCode default">execution::start()</code> are being
+executed as if they were initiated by different threads.</p>
+<h1 data-number="3" id="use-cases-of-completes_synchronouslysender-env"><span class="header-section-number">3</span> Use Cases of <code class="sourceCode default">completes_synchronously(sender, env)</code><a href="#use-cases-of-completes_synchronouslysender-env" class="self-link"></a></h1>
 <p>The <code class="sourceCode default">completes_synchronously(sender, env)</code>
 query serves as a crucial determinant in understanding the behavior of
 asynchronous operations within different contexts. Its role extends
@@ -544,18 +545,17 @@ algorithm: One possible implementation of
 <code class="sourceCode default">sync_wait(sender)</code> is to
 synchronize the completion of the async operation with an internal
 condition variable. On the other hand, if <code class="sourceCode default">completes_synchronously(sender, env)</code>
-is <code class="sourceCode default">true</code>, the operation can be
-completed synchronously without the need for an extra thread
-synchronization. This optimization is possible because the
-completion-signal is guaranteed to occur before the return from
-<code class="sourceCode default">execution::start()</code>.</p></li>
-<li><p>Imagine a <code class="sourceCode default">repeat(sender)</code>
-algorithm that repeats the asynchronous operation indefinitely until
-being stopped. If the resulting operation completes synchronously, the
-usual implementation results in a recursive call to
+is <code class="sourceCode default">true</code>, the operation will be
+completed synchronously automatically when it is being started and the
+need for synchronization is avoided.</p></li>
+<li><p>Consider a typical
+<code class="sourceCode default">repeat(s1)</code> algorithm that
+repeats the asynchronous operation, which is associated with the sender
+<code class="sourceCode default">s1</code>. If the operation completes
+synchronously, the usual implementation results in a recursive call to
 <code class="sourceCode default">execuction::start()</code> within the
 completion signal <code class="sourceCode default">set_value()</code> of
-an intermediate receiver. Usually, some kind of prevention needs to be
+an intermediate receiver. Therefore, some kind of prevention needs to be
 implemented to avoid recursive call stacks and stack overflow,
 e.g. using a trampoline scheduler. One possible solution is to use a
 <code class="sourceCode default">completes_synchronously(sender, env)</code>
@@ -564,37 +564,16 @@ query to determine whether the operation is completed synchronously. If
 is <code class="sourceCode default">true</code>, the operation is
 completed synchronously, and the algorithm can be implemented such that
 the recursion is avoided.</p></li>
-<li><p>Assume a coroutine task
-<code class="sourceCode default">execution::task&lt;T&gt;</code> that
-ensures that each awaited expression completes on the current scheduler.
-If the awaited expression completes synchronously, the task can be
-implemented such that the coroutine is resumed immediately. If the
-awaited expression completes asynchronously, the task can be implemented
-such that the coroutine is resumed on the current scheduler when the
-awaited expression completes.</p></li>
+<li><p>Consider a coroutine task type
+<code class="sourceCode default">task&lt;T&gt;</code> that ensures that
+each awaited expression completes on the current scheduler. If the
+awaited expression completes synchronously, the task can be implemented
+such that the coroutine is resumed immediately. If the awaited
+expression completes asynchronously, the task can be implemented such
+that the coroutine is resumed on the current scheduler when the awaited
+expression completes.</p></li>
 </ol>
-<h1 data-number="4" id="exploring-the-role-of-is_blockingsender-env-in-asynchronous-operations"><span class="header-section-number">4</span> Exploring the Role of
-<code class="sourceCode default">is_blocking(sender, env)</code> in
-Asynchronous Operations<a href="#exploring-the-role-of-is_blockingsender-env-in-asynchronous-operations" class="self-link"></a></h1>
-<ol type="1">
-<li>Managing Thread resources: A thread pool might have extra resource
-for blocking operations. In this case,
-<code class="sourceCode default">is_blocking(sender, env)</code> can be
-used to determine whether the operation is blocking or not. If
-<code class="sourceCode default">is_blocking(sender, env)</code> is
-<code class="sourceCode default">true</code>, the operation can be
-executed on a thread that is allowed to be blocked. If
-<code class="sourceCode default">is_blocking(sender, env)</code> is
-<code class="sourceCode default">false</code>, the operation can be
-executed on a thread that is not allowed to block.</li>
-</ol>
-<h1 data-number="5" id="conclusion"><span class="header-section-number">5</span> Conclusion:<a href="#conclusion" class="self-link"></a></h1>
-<p>Clear differentiation between
-<code class="sourceCode default">completes_synchronously()</code> and
-<code class="sourceCode default">is_blocking()</code> helps programmers
-understand the distinct scenarios and implications associated with each
-query. This clarity enables precise control and optimization in managing
-the lifetime of asynchronous operations within C++.</p>
+<h1 data-number="4" id="implementation"><span class="header-section-number">4</span> Implementation<a href="#implementation" class="self-link"></a></h1>
 </div>
 </div>
 </body>
