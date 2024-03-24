@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="mpark/wg21" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <meta name="dcterms.date" content="2024-03-23" />
+  <meta name="dcterms.date" content="2024-03-24" />
   <title>Introducing sender queries `completes_inline` and
 `starts_blockingly`</title>
   <style>
@@ -430,7 +430,7 @@ code.sourceCode > span { display: inline; }
   </tr>
   <tr>
     <td>Date:</td>
-    <td>2024-03-23</td>
+    <td>2024-03-24</td>
   </tr>
   <tr>
     <td style="vertical-align:top">Project:</td>
@@ -452,7 +452,7 @@ code.sourceCode > span { display: inline; }
 </header>
 <div style="clear:both">
 <h1 data-number="1" id="abstract"><span class="header-section-number">1</span> Abstract<a href="#abstract" class="self-link"></a></h1>
-<p>This paper continues on <span class="citation" data-cites="P2257R0">[<a href="https://wg21.link/p2257r0" role="doc-biblioref">P2257R0</a>]</span> and proposes two sender queries
+<p>This paper continues <span class="citation" data-cites="P2257R0">[<a href="https://wg21.link/p2257r0" role="doc-biblioref">P2257R0</a>]</span> and proposes two sender queries
 for <span class="citation" data-cites="P2300R7">[<a href="https://wg21.link/p2300r7" role="doc-biblioref">P2300R7</a>]</span>, namely <code class="sourceCode cpp">execution<span class="op">::</span>completes_inline</code>
 and <code class="sourceCode cpp">execution<span class="op">::</span>starts_blockingly</code>.
 These sender queries empower a sender to convey additional information
@@ -486,22 +486,49 @@ algorithm that repeats the construction and start of the resulting child
 operation. If the child operation completes inline the
 <code class="sourceCode cpp">repeat<span class="op">()</span></code>
 algorithm can be implemented as a while loop. If <code class="sourceCode cpp">completes_inline<span class="op">(</span>sender, env<span class="op">)</span></code>
-returns false the child operation calls it’s completion signal either in
+returns false the child operation calls its completion signal either in
 a different thread of execution or after the call to
 <code class="sourceCode cpp">start<span class="op">()</span></code>
 returns. If it is not known whether an operation completes inline or
-not, one needs to mitigate a possile recursive call to
+not, one needs to mitigate a possible recursive call to
 <code class="sourceCode cpp">start<span class="op">()</span></code> by
-e. g. rescheduling on a lightweight scheduler.</p>
+e.g. rescheduling on a lightweight scheduler.</p>
 <h2 data-number="2.3" id="scheduler-affine-task-type"><span class="header-section-number">2.3</span> scheduler-affine task type<a href="#scheduler-affine-task-type" class="self-link"></a></h2>
 <p>Consider a scheduler-affine coroutine task type that ensures for each
 awaited expression that it completes on the current scheduler. If an
-awaited sender operation completes inline, the task can optimize by
+awaited sender operation completes inline, the task can be optimized by
 resuming eagerly.</p>
+<h2 data-number="2.4" id="a-run-algorithm-to-compose-multiple-run_loop-like-contexts"><span class="header-section-number">2.4</span> A
+<code class="sourceCode cpp">run</code> algorithm to compose multiple
+<code class="sourceCode cpp">run_loop</code>-like contexts<a href="#a-run-algorithm-to-compose-multiple-run_loop-like-contexts" class="self-link"></a></h2>
+<p>Consider the following example, which defines a concept for a
+driveable execution context</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">class</span> Context<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">concept</span> driveable_context <span class="op">=</span> <span class="kw">requires</span> <span class="op">(</span>Context<span class="op">&amp;</span> context<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="op">{</span> context<span class="op">.</span>when_ready<span class="op">()</span> <span class="op">}</span> <span class="op">-&gt;</span> sender;</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="op">{</span> context<span class="op">.</span>run_some<span class="op">()</span> <span class="op">}</span> <span class="op">-&gt;</span> sender;</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span>;</span></code></pre></div>
+<p>To make an algorithm that composes multiple such contexts, it could
+be helpful to know whether</p>
+<ol type="1">
+<li>the sender returned from
+<code class="sourceCode cpp">when_ready<span class="op">()</span></code>
+starts blockingly</li>
+<li>the sender returned from
+<code class="sourceCode cpp">run_some<span class="op">()</span></code>
+completes inline</li>
+</ol>
+<p>There is some design space regarding a composition. For the first
+bullet point, one might either require
+<code class="sourceCode cpp">when_ready<span class="op">()</span></code>
+to be a non-blocking operation or schedule its execution on an extra
+execution resource if it is. Regarding the second bullet point, one
+might require <code class="sourceCode cpp">context<span class="op">.</span>run_some<span class="op">()</span></code>
+to return a sender that completes inline.</p>
 <h1 data-number="3" id="proposal"><span class="header-section-number">3</span> Proposal<a href="#proposal" class="self-link"></a></h1>
 <p>Let sender <code class="sourceCode cpp">sndr</code> and receiver
 <code class="sourceCode cpp">rcvr</code> be connected, let
-<code class="sourceCode cpp">env</code> be the receivers environment and
+<code class="sourceCode cpp">env</code> be the receiver environment and
 <code class="sourceCode cpp">op</code> the resulting operation that is
 initiated by <code class="sourceCode cpp">execution<span class="op">::</span>start<span class="op">(</span>op<span class="op">)</span></code>.
 The customization point objects <code class="sourceCode cpp">execution<span class="op">::</span>completes_inline<span class="op">(</span>sndr, env<span class="op">)</span></code>
@@ -509,30 +536,28 @@ and <code class="sourceCode cpp">execution<span class="op">::</span>starts_block
 are proposed.</p>
 <p>Similar to <code class="sourceCode cpp">get_completion_signatures<span class="op">(</span>sndr, env<span class="op">)</span></code>,
 instead of providing member functions</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> my_sender <span class="op">{</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// ...</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> completes_inline<span class="op">(</span><span class="kw">auto</span><span class="op">&amp;&amp;)</span> <span class="kw">const</span> <span class="kw">noexcept</span> <span class="op">-&gt;</span> std<span class="op">::</span>true_type;</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span>;</span></code></pre></div>
-<p>senders are allowed provide using-declarations
+<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> my_sender <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// ...</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> completes_inline<span class="op">(</span><span class="kw">auto</span><span class="op">&amp;&amp;)</span> <span class="kw">const</span> <span class="kw">noexcept</span> <span class="op">-&gt;</span> std<span class="op">::</span>true_type;</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span>;</span></code></pre></div>
+<p>senders are allowed to provide using-declarations
 <code class="sourceCode cpp">completes_inline</code> or
 <code class="sourceCode cpp">starts_blockingly</code> if those values
 are independent of the receivers environment. E. g.</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> my_sender <span class="op">{</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// ...</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">using</span> completes_inline <span class="op">=</span> std<span class="op">::</span>true_type;</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span>;</span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> my_sender <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">// ...</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">using</span> completes_inline <span class="op">=</span> std<span class="op">::</span>true_type;</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span>;</span></code></pre></div>
 <h2 data-number="3.1" id="executioncompletes_inline"><span class="header-section-number">3.1</span> <code class="sourceCode cpp">execution<span class="op">::</span>completes_inline</code><a href="#executioncompletes_inline" class="self-link"></a></h2>
 <p>The return type of <code class="sourceCode cpp">completes_inline<span class="op">(</span>sndr, env<span class="op">)</span></code>
 is convertible to
 <code class="sourceCode cpp"><span class="dt">bool</span></code>.</p>
-<p><strong>true:</strong> a connected receiver’s completion-signal
+<p><strong>true:</strong> A connected receiver’s completion-signal
 operations will occur on the calling thread before <code class="sourceCode cpp">execution<span class="op">::</span>start<span class="op">()</span></code>
 returns.</p>
-<p><strong>false:</strong> a connected receiver’s completion-signal
+<p><strong>false:</strong> A connected receiver’s completion-signal
 operations will not occur on the calling thread before <code class="sourceCode cpp">execution<span class="op">::</span>start<span class="op">()</span></code>
-returns and this does not prohibit a connected receiver’s
-completion-signal operations from occurring concurrently on another
-thread prior to, concurrently with, or after return from <code class="sourceCode cpp">execution<span class="op">::</span>start<span class="op">()</span></code>.</p>
+returns</p>
 <p>If <code class="sourceCode cpp">completes_inline<span class="op">(</span>sndr, env<span class="op">)</span></code>
 is an invalid expression no guarantee will be made.</p>
 <h2 data-number="3.2" id="executionstarts_blockingly"><span class="header-section-number">3.2</span> <code class="sourceCode cpp">execution<span class="op">::</span>starts_blockingly</code><a href="#executionstarts_blockingly" class="self-link"></a></h2>
@@ -550,7 +575,7 @@ shall not block pending any condition external to the steps of the
 thread of execution.</p>
 <p>If <code class="sourceCode cpp">starts_blockingly<span class="op">(</span>sndr, env<span class="op">)</span></code>
 is an invalid expression no guarantee will be made.</p>
-<p>Note: This is different to how <span class="citation" data-cites="P0443R14">[<a href="https://wg21.link/p0443r14" role="doc-biblioref">P0443R14</a>]</span> described the blocking
+<p>Note: This is different from how <span class="citation" data-cites="P0443R14">[<a href="https://wg21.link/p0443r14" role="doc-biblioref">P0443R14</a>]</span> described the blocking
 property.</p>
 <h1 data-number="4" id="implementation-experience"><span class="header-section-number">4</span> Implementation Experience<a href="#implementation-experience" class="self-link"></a></h1>
 <p>libunifex uses a <code class="sourceCode cpp">blocking<span class="op">(</span><span class="kw">const</span> Sender<span class="op">&amp;)</span> <span class="op">-&gt;</span> blocking_kind</code>
@@ -573,20 +598,20 @@ returns.</li>
 </ul>
 <h1 data-number="5" id="prior-work"><span class="header-section-number">5</span> Prior Work<a href="#prior-work" class="self-link"></a></h1>
 <p>The proposal <span class="citation" data-cites="P2257R0">[<a href="https://wg21.link/p2257r0" role="doc-biblioref">P2257R0</a>]</span> pointed out that queries about
-the completion behaviour are properties of the associated operation.
-This is the reason why this papers makes the queries depend on the
-receivers environment, analogous to <code class="sourceCode cpp">get_completion_signatures<span class="op">(</span>sndr, env<span class="op">)</span></code>.</p>
+the completion behavior are properties of the associated operation. This
+is the reason why this papers makes the queries depend on the receiver’s
+environment, analogous to <code class="sourceCode cpp">get_completion_signatures<span class="op">(</span>sndr, env<span class="op">)</span></code>.</p>
 <h1 data-number="6" id="open-questions"><span class="header-section-number">6</span> Open Questions<a href="#open-questions" class="self-link"></a></h1>
-<p>This paper does not address the question whether an async operation
-as a whole makes forward progress with respect to provided forward
+<p>This paper does not address the question of whether an async
+operation as a whole makes forward progress concerning provided forward
 progress guarantees.</p>
 <p>Also, <code class="sourceCode cpp">starts_blockingly</code> provides
-information of only one half of the operation. Another question to be
-ask could be whether the completion function of a receiver will block.
-This would be a regular query on a receivers environment.</p>
-<p>Furthermore it is an open question whether the queries should be part
-of the senders attributes instead of being direct member functions of
-the respective sender types.</p>
+information on only one-half of the operation. Another question to be
+asked could be whether the completion function of a receiver will block.
+This would be a regular query on a receiver’s environment.</p>
+<p>Furthermore, it is an open question whether the queries should be
+part of the sender’s attributes instead of being direct member functions
+of the respective sender types.</p>
 <h1 data-number="7" id="implications-on-sender-factories-and-adaptors"><span class="header-section-number">7</span> Implications on Sender Factories
 and Adaptors<a href="#implications-on-sender-factories-and-adaptors" class="self-link"></a></h1>
 <p>The following section describes how to compute the values for
@@ -596,13 +621,12 @@ algorithm in <span class="citation" data-cites="P2300R7">[<a href="https://wg21.
 Domain specializations are allowed to change those values.</p>
 <h2 data-number="7.1" id="sender-factories"><span class="header-section-number">7.1</span> Sender Factories<a href="#sender-factories" class="self-link"></a></h2>
 <p>In general, each sender factory needs to provide the information from
-its respective imlpementation.</p>
+its respective implementation.</p>
 <h3 data-number="7.1.1" id="schedulerun_loopscheduler"><span class="header-section-number">7.1.1</span>
 schedule(run_loop::scheduler)<a href="#schedulerun_loopscheduler" class="self-link"></a></h3>
 <ul>
 <li><code class="sourceCode cpp">completes_inline</code>: <code class="sourceCode cpp">std<span class="op">::</span>false_type</code></li>
-<li><code class="sourceCode cpp">starts_blockingly</code>:
-implementation-defined</li>
+<li><code class="sourceCode cpp">starts_blockingly</code>: <code class="sourceCode cpp">std<span class="op">::</span>false_type</code></li>
 </ul>
 <h3 data-number="7.1.2" id="just-just_error-just_stopped"><span class="header-section-number">7.1.2</span> just(), just_error(),
 just_stopped()<a href="#just-just_error-just_stopped" class="self-link"></a></h3>
@@ -696,7 +720,7 @@ returns <code class="sourceCode cpp">completes_inline<span class="op">(</span>se
 - <code class="sourceCode cpp">starts_blockingly<span class="op">(</span>s, env<span class="op">)</span></code>
 returns <code class="sourceCode cpp">starts_blockingly<span class="op">(</span>sender, env<span class="op">)</span></code></p>
 <h3 data-number="7.2.5" id="bulkinput-shape-fn"><span class="header-section-number">7.2.5</span> <code class="sourceCode cpp">bulk<span class="op">(</span>input, shape, fn<span class="op">)</span></code><a href="#bulkinput-shape-fn" class="self-link"></a></h3>
-<p>TBD, implementation defined?</p>
+<p>TBD, implementation-defined?</p>
 <h3 data-number="7.2.6" id="when_allsenders..."><span class="header-section-number">7.2.6</span> <code class="sourceCode cpp">when_all<span class="op">(</span>senders<span class="op">...)</span></code><a href="#when_allsenders..." class="self-link"></a></h3>
 <p>Let <code class="sourceCode cpp">s</code> denote the expression <code class="sourceCode cpp">when_all<span class="op">(</span>senders<span class="op">...)</span></code>
 let <code class="sourceCode cpp">last</code> denote the last element of
