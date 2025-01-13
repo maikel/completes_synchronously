@@ -590,9 +590,9 @@ known and is equal to the starting scheduler.</p>
 sender-awaitable will resume on the current thread of execution. This
 proposal helps to identify the second group of senders.</p>
 <h1 data-number="3" id="proposal"><span class="header-section-number">3</span> Proposal<a href="#proposal" class="self-link"></a></h1>
-<p>Let <code class="sourceCode cpp">s</code> denote a sender and
+<p>Let <code class="sourceCode cpp">sndr</code> denote a sender and
 <code class="sourceCode cpp">env</code> an environment type. I propose a
-customization point object <code class="sourceCode cpp">execution<span class="op">::</span>get_completion_behaviour<span class="op">(</span>s, env<span class="op">)</span></code>
+customization point object <code class="sourceCode cpp">execution<span class="op">::</span>get_completion_behaviour<span class="op">(</span>sndr, env<span class="op">)</span></code>
 with an interface that is similar to
 <code class="sourceCode cpp">get_completion_signatures</code>. Authors
 of sender algorithms can define</p>
@@ -622,7 +622,7 @@ does not depend on the environment</li>
 <span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">using</span> completion_behaviour <span class="op">=</span> constant<span class="op">&lt;</span>execution<span class="op">::</span>completion_behaviour<span class="op">::</span>asynchronous<span class="op">&gt;</span>;</span>
 <span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span>;</span></code></pre></div>
 <h2 data-number="3.1" id="executionget_completion_behaviour"><span class="header-section-number">3.1</span> <code class="sourceCode cpp">execution<span class="op">::</span>get_completion_behaviour</code><a href="#executionget_completion_behaviour" class="self-link"></a></h2>
-<p>The return type of <code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>s, env<span class="op">)</span></code>
+<p>The return type of <code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>sndr, env<span class="op">)</span></code>
 is convertible to <code class="sourceCode cpp">execution<span class="op">::</span>completion_behaviour</code>.</p>
 <ul>
 <li><p><code class="sourceCode cpp">completion_behaviour<span class="op">::</span>inline_completion</code>:
@@ -639,7 +639,7 @@ returns.</p></li>
 <li><p><code class="sourceCode cpp">completion_behaviour<span class="op">::</span>unknown</code>:
 The completion behaviour is unknown.</p></li>
 </ul>
-<p>If <code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>s, env<span class="op">)</span></code>
+<p>If <code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>sndr, env<span class="op">)</span></code>
 is an invalid expression no guarantee will be made.</p>
 <h1 data-number="4" id="implementation-experience"><span class="header-section-number">4</span> Implementation Experience<a href="#implementation-experience" class="self-link"></a></h1>
 <p>libunifex uses a <code class="sourceCode cpp">blocking<span class="op">(</span><span class="kw">const</span> Sender<span class="op">&amp;)</span> <span class="op">-&gt;</span> blocking_kind</code>
@@ -672,7 +672,7 @@ property of the operation.</p>
 operation state instead of a sender and environment pair. While it would
 technically work to query the operation states directly, it would also
 require to instantiate those operation state types.</p>
-<p>Another alternative is to consider a boolean predicate, such as <code class="sourceCode cpp">completes_synchronously<span class="op">(</span>s, env<span class="op">)</span></code>,
+<p>Another alternative is to consider a boolean predicate, such as <code class="sourceCode cpp">completes_synchronously<span class="op">(</span>sndr, env<span class="op">)</span></code>,
 instead. Note, that
 <code class="sourceCode cpp">inline_completion</code> implies
 <code class="sourceCode cpp">synchronous</code> completion. In practise,
@@ -712,53 +712,60 @@ just_stopped()<a href="#just-just_error-just_stopped" class="self-link"></a></h3
 </ul>
 <h2 data-number="6.2" id="sender-adaptors"><span class="header-section-number">6.2</span> Sender Adaptors<a href="#sender-adaptors" class="self-link"></a></h2>
 <h3 data-number="6.2.1" id="finallysender1-sender2-continues_onsender-scheduler-starts_onscheduler-sender"><span class="header-section-number">6.2.1</span> <code class="sourceCode cpp">finally<span class="op">(</span>sender1, sender2<span class="op">)</span>, continues_on<span class="op">(</span>sender, scheduler<span class="op">)</span>, starts_on<span class="op">(</span>scheduler, sender<span class="op">)</span></code><a href="#finallysender1-sender2-continues_onsender-scheduler-starts_onscheduler-sender" class="self-link"></a></h3>
-<p>Let <code class="sourceCode cpp">s</code> denote the expression <code class="sourceCode cpp">finally<span class="op">(</span>sender1, sender2<span class="op">)</span></code>.</p>
+<p>Let <code class="sourceCode cpp">sndr</code> denote the expression
+<code class="sourceCode cpp">finally<span class="op">(</span>sender1, sender2<span class="op">)</span></code>.</p>
 <ul>
-<li><code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>s, env<span class="op">)</span></code>
+<li><code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>sndr, env<span class="op">)</span></code>
 returns <code class="sourceCode cpp">min<span class="op">(</span>get_completion_behaviour<span class="op">(</span>sender1, env<span class="op">)</span>, get_completion_behaviour<span class="op">(</span>sender2, env<span class="op">))</span></code></li>
 </ul>
 <h3 data-number="6.2.2" id="thensender-fn-upon_errorsender-fn-upon_stoppedsender-fn"><span class="header-section-number">6.2.2</span> <code class="sourceCode cpp">then<span class="op">(</span>sender, fn<span class="op">)</span></code>,
 <code class="sourceCode cpp">upon_error<span class="op">(</span>sender, fn<span class="op">)</span></code>,
 <code class="sourceCode cpp">upon_stopped<span class="op">(</span>sender, fn<span class="op">)</span></code><a href="#thensender-fn-upon_errorsender-fn-upon_stoppedsender-fn" class="self-link"></a></h3>
-<p>Let <code class="sourceCode cpp">s</code> denote the expression <code class="sourceCode cpp">then<span class="op">(</span>sender, fn<span class="op">)</span></code>.</p>
+<p>Let <code class="sourceCode cpp">sndr</code> denote the expression
+<code class="sourceCode cpp">then<span class="op">(</span>sender, fn<span class="op">)</span></code>.</p>
 <ul>
-<li><code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>s, env<span class="op">)</span></code>
+<li><code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>sndr, env<span class="op">)</span></code>
 returns <code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>sender, env<span class="op">)</span></code></li>
 </ul>
 <h3 data-number="6.2.3" id="let_valuesender-fn-let_errorsender-fn-let_stoppedsender-fn"><span class="header-section-number">6.2.3</span> <code class="sourceCode cpp">let_value<span class="op">(</span>sender, fn<span class="op">)</span></code>,
 <code class="sourceCode cpp">let_error<span class="op">(</span>sender, fn<span class="op">)</span></code>,
 <code class="sourceCode cpp">let_stopped<span class="op">(</span>sender, fn<span class="op">)</span></code><a href="#let_valuesender-fn-let_errorsender-fn-let_stoppedsender-fn" class="self-link"></a></h3>
-<p>Let <code class="sourceCode cpp">s</code> denote the expression <code class="sourceCode cpp">let_value<span class="op">(</span>sender, fn<span class="op">)</span></code>.
+<p>Let <code class="sourceCode cpp">sndr</code> denote the expression
+<code class="sourceCode cpp">let_value<span class="op">(</span>sender, fn<span class="op">)</span></code>.
 Let <code class="sourceCode cpp">rs<span class="op">...</span></code>
 denote the set of all possible result-senders returned from
 <code class="sourceCode cpp">fn</code>.</p>
 <ul>
-<li><code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>s, env<span class="op">)</span></code>
+<li><code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>sndr, env<span class="op">)</span></code>
 returns <code class="sourceCode cpp">min<span class="op">(</span>get_completion_behaviour<span class="op">(</span>sender, env<span class="op">)</span>, get_completion_behaviour<span class="op">(</span>rs, env<span class="op">)...)</span></code></li>
 </ul>
 <h3 data-number="6.2.4" id="into_variantsender-stopped_as_optionalsender"><span class="header-section-number">6.2.4</span> <code class="sourceCode cpp">into_variant<span class="op">(</span>sender<span class="op">)</span></code>,
 <code class="sourceCode cpp">stopped_as_optional<span class="op">(</span>sender<span class="op">)</span></code><a href="#into_variantsender-stopped_as_optionalsender" class="self-link"></a></h3>
-<p>Let <code class="sourceCode cpp">s</code> denote the expression <code class="sourceCode cpp">into_variant<span class="op">(</span>sender, fn<span class="op">)</span></code>.</p>
+<p>Let <code class="sourceCode cpp">sndr</code> denote the expression
+<code class="sourceCode cpp">into_variant<span class="op">(</span>sender, fn<span class="op">)</span></code>.</p>
 <ul>
-<li><code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>s, env<span class="op">)</span></code>
+<li><code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>sndr, env<span class="op">)</span></code>
 returns <code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>sender, env<span class="op">)</span></code></li>
 </ul>
 <h3 data-number="6.2.5" id="bulksender-shape-fn"><span class="header-section-number">6.2.5</span> <code class="sourceCode cpp">bulk<span class="op">(</span>sender, shape, fn<span class="op">)</span></code><a href="#bulksender-shape-fn" class="self-link"></a></h3>
-<p>Let <code class="sourceCode cpp">s</code> denote the expression <code class="sourceCode cpp">bulk<span class="op">(</span>sender, shape, fn<span class="op">)</span></code>.</p>
+<p>Let <code class="sourceCode cpp">sndr</code> denote the expression
+<code class="sourceCode cpp">bulk<span class="op">(</span>sender, shape, fn<span class="op">)</span></code>.</p>
 <ul>
-<li><code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>s, env<span class="op">)</span></code>:
+<li><code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>sndr, env<span class="op">)</span></code>:
 <code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>sender, env<span class="op">)</span></code></li>
 </ul>
 <h3 data-number="6.2.6" id="when_allsenders..."><span class="header-section-number">6.2.6</span> <code class="sourceCode cpp">when_all<span class="op">(</span>senders<span class="op">...)</span></code><a href="#when_allsenders..." class="self-link"></a></h3>
-<p>Let <code class="sourceCode cpp">s</code> denote the expression <code class="sourceCode cpp">when_all<span class="op">(</span>senders<span class="op">...)</span></code>.</p>
+<p>Let <code class="sourceCode cpp">sndr</code> denote the expression
+<code class="sourceCode cpp">when_all<span class="op">(</span>senders<span class="op">...)</span></code>.</p>
 <ul>
-<li><code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>s, env<span class="op">)</span></code>
+<li><code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>sndr, env<span class="op">)</span></code>
 returns <code class="sourceCode cpp">min<span class="op">(</span>get_completion_behaviour<span class="op">(</span>senders, env<span class="op">)...)</span></code></li>
 </ul>
 <h3 data-number="6.2.7" id="splitsender"><span class="header-section-number">6.2.7</span> <code class="sourceCode cpp">split<span class="op">(</span>sender<span class="op">)</span></code><a href="#splitsender" class="self-link"></a></h3>
-<p>Let <code class="sourceCode cpp">s</code> denote the expression <code class="sourceCode cpp">split<span class="op">(</span>sender<span class="op">)</span></code>.</p>
+<p>Let <code class="sourceCode cpp">sndr</code> denote the expression
+<code class="sourceCode cpp">split<span class="op">(</span>sender<span class="op">)</span></code>.</p>
 <ul>
-<li><code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>s, env<span class="op">)</span></code>:
+<li><code class="sourceCode cpp">get_completion_behaviour<span class="op">(</span>sndr, env<span class="op">)</span></code>:
 <ul>
 <li>Returns a dynamic value. The operation of <code class="sourceCode cpp">split<span class="op">(</span>sender<span class="op">)</span></code>
 completes inline if the input operation has completed before starting a
